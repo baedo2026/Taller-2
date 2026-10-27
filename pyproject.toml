@@ -1,13 +1,17 @@
 [project]
 name = "estudiantes-fastapi"
 version = "0.1.0"
-description = "CRUD de estudiantes y sus mascotas con FastAPI y almacenamiento en memoria"
+description = "CRUD de estudiantes y sus mascotas con FastAPI, PostgreSQL y SQLAlchemy"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.13"
 dependencies = [
+    "alembic>=1.13,<2.0",
     "email-validator>=2.2.0",
     "fastapi>=0.115.0",
+    "psycopg[binary]>=3.2,<4.0",
+    "python-dotenv>=1.0,<2.0",
+    "sqlalchemy>=2.0,<3.0",
     "uvicorn[standard]>=0.30.0",
 ]
 

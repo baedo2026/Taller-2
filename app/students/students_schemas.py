@@ -39,15 +39,15 @@ STUDENT_AGE_MESSAGES: Final[dict[str, str]] = {
 
 
 class Student(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     id: str
     name: str
     username: str
     email: EmailStr
     age: int
-    createdAt: ApiDatetime
-    updatedAt: ApiDatetime
+    createdAt: ApiDatetime = Field(validation_alias="created_at", serialization_alias="createdAt")
+    updatedAt: ApiDatetime = Field(validation_alias="updated_at", serialization_alias="updatedAt")
 
 
 class StudentList(BaseModel):

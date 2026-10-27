@@ -32,15 +32,15 @@ PET_AGE_MESSAGES: Final[dict[str, str]] = {
 
 
 class Pet(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     id: str
-    studentId: str
+    studentId: str = Field(validation_alias="student_id", serialization_alias="studentId")
     name: str
     species: str
     age: int | None = None
-    createdAt: ApiDatetime
-    updatedAt: ApiDatetime
+    createdAt: ApiDatetime = Field(validation_alias="created_at", serialization_alias="createdAt")
+    updatedAt: ApiDatetime = Field(validation_alias="updated_at", serialization_alias="updatedAt")
 
 
 class PetList(BaseModel):

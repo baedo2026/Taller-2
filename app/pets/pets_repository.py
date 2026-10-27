@@ -1,32 +1,31 @@
-from app.pets.pets_schemas import Pet
-from app.shared.in_memory_store import InMemoryStore
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.db.models import PetORM
 
 
 class PetsRepository:
-    def __init__(self) -> None:
-        self._store: InMemoryStore[Pet] = InMemoryStore()
+    def __init__(self, session: Session) -> None:
+        self.session = session
 
-    def find_all_by_student(self, student_id: str) -> list[Pet]:
-        return self._store.find_by(lambda pet: pet.studentId == student_id)
+    def find_all_by_student(self, student_id: str) -> list[PetORM]:
+        statement = select(PetORM).where(PetORM.student_id == student_id)
+        return list(self.session.scalars(statement).all())
 
-    def find_by_id(self, pet_id: str) -> Pet | None:
-        return self._store.get(pet_id)
+    def find_by_id(self, pet_id: str) -> PetORM | None:
+        return self.session.get(PetORM, pet_id)
 
-    def find_by_student_and_name(self, student_id: str, name: str) -> Pet | None:
-        matches = self._store.find_by(
-            lambda pet: pet.studentId == student_id and pet.name == name
+    def find_by_student_and_name(self, student_id: str, name: str) -> PetORM | None:
+        statement = select(PetORM).where(
+            PetORM.student_id == student_id,
+            PetORM.name == name,
         )
-        return matches[0] if matches else None
+        return self.session.scalar(statement)
 
-    def save(self, pet: Pet) -> Pet:
-        self._store.set(pet)
+    def save(self, pet: PetORM) -> PetORM:
+        self.session.add(pet)
+        self.session.flush()
         return pet
 
-    def delete(self, pet_id: str) -> None:
-        self._store.delete(pet_id)
-
-    def delete_by_student(self, student_id: str) -> None:
-        self._store.delete_by(lambda pet: pet.studentId == student_id)
-
-
-pets_repository = PetsRepository()
+    def delete(self, pet: PetORM) -> None:
+        self.session.delete(pet)
