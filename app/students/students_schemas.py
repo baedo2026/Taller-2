@@ -40,7 +40,7 @@ STUDENT_AGE_MESSAGES: Final[dict[str, str]] = {
 
 class Student(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-
+    
     id: str
     name: str
     username: str

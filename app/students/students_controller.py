@@ -1,40 +1,34 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.orm import Session
 
-from app.pets.pets_service import pets_service
-from app.students.students_schemas import (
-    CreateStudentDto,
-    Student,
-    StudentList,
-    UpdateStudentDto,
-)
-from app.students.students_service import students_service
+from app.db.session import get_db
+from app.students.students_schemas import Student, CreateStudentDto, UpdateStudentDto
+from app.students.students_service import StudentsService
 
-router = APIRouter(prefix="/api/students", tags=["Students"])
+router = APIRouter(prefix="/students", tags=["Students"])
+service = StudentsService()
 
 
-@router.get("")
-def find_all() -> StudentList:
-    return students_service.find_all()
+@router.get("", response_model=list[Student])
+def get_all_students(db: Session = Depends(get_db)):
+    return service.find_all(db)
 
 
-@router.get("/{studentId}")
-def find_by_id(studentId: str) -> Student:
-    return students_service.find_by_id(studentId)
+@router.get("/{student_id}", response_model=Student)
+def get_student_by_id(student_id: str, db: Session = Depends(get_db)):
+    return service.find_by_id(db, student_id)
 
 
-@router.post("", status_code=201)
-def create(body: CreateStudentDto) -> Student:
-    return students_service.create(body)
+@router.post("", response_model=Student, status_code=status.HTTP_201_CREATED)
+def create_student(dto: CreateStudentDto, db: Session = Depends(get_db)):
+    return service.create(db, dto)
 
 
-@router.patch("/{studentId}")
-def update(studentId: str, body: UpdateStudentDto) -> Student:
-    return students_service.update(studentId, body)
+@router.patch("/{student_id}", response_model=Student)
+def update_student(student_id: str, dto: UpdateStudentDto, db: Session = Depends(get_db)):
+    return service.update(db, student_id, dto)
 
 
-@router.delete("/{studentId}")
-def delete(studentId: str) -> Student:
-    deleted = students_service.delete(studentId)
-    pets_service.delete_all_for_student(studentId)
-
-    return deleted
+@router.delete("/{student_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_student(student_id: str, db: Session = Depends(get_db)):
+    service.delete(db, student_id)

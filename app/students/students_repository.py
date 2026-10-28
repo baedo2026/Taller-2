@@ -1,28 +1,27 @@
-from app.shared.in_memory_store import InMemoryStore
-from app.students.students_schemas import Student
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.db.models import StudentORM
 
 
 class StudentsRepository:
-    def __init__(self) -> None:
-        self._store: InMemoryStore[Student] = InMemoryStore()
+    def find_all(self, db: Session) -> list[StudentORM]:
+        return list(db.scalars(select(StudentORM)).all())
 
-    def find_all(self) -> list[Student]:
-        return self._store.find_all()
+    def find_by_id(self, db: Session, student_id: str) -> StudentORM | None:
+        return db.scalar(select(StudentORM).where(StudentORM.id == student_id))
 
-    def find_by_id(self, student_id: str) -> Student | None:
-        return self._store.get(student_id)
+    def find_by_email(self, db: Session, email: str) -> StudentORM | None:
+        return db.scalar(select(StudentORM).where(StudentORM.email == email))
 
-    def find_by_email(self, email: str) -> Student | None:
-        matches = self._store.find_by(lambda student: student.email == email)
-        return matches[0] if matches else None
+    def find_by_username(self, db: Session, username: str) -> StudentORM | None:
+        return db.scalar(select(StudentORM).where(StudentORM.username == username))
 
-    def find_by_username(self, username: str) -> Student | None:
-        matches = self._store.find_by(lambda student: student.username == username)
-        return matches[0] if matches else None
-
-    def save(self, student: Student) -> Student:
-        self._store.set(student)
+    def save(self, db: Session, student: StudentORM) -> StudentORM:
+        db.add(student)
         return student
 
-    def delete(self, student_id: str) -> None:
-        self._store.delete(student_id)
+    def delete(self, db: Session, student_id: str) -> None:
+        student = self.find_by_id(db, student_id)
+        if student:
+            db.delete(student)
