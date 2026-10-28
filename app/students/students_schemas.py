@@ -49,6 +49,11 @@ class Student(BaseModel):
     createdAt: ApiDatetime
     updatedAt: ApiDatetime
 
+    @field_validator("id", mode="before")
+    @classmethod
+    def _serialize_id(cls, value: object) -> str:
+        return str(value)
+
 
 class StudentList(BaseModel):
     total: int

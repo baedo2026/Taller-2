@@ -31,6 +31,8 @@ import { toast as sonnerToast } from "https://cdn.jsdelivr.net/npm/vanilla-sonne
  *   age?: number,
  *   createdAt: string,
  *   updatedAt: string,
+ *   studentName?: string,
+ *   studentUsername?: string,
  * }} Pet
  */
 

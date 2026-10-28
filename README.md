@@ -1,11 +1,12 @@
 # CRUD Students & Pets (FastAPI)
 
-Proyecto FastAPI que implementa un **CRUD** para la entidad `Student` y sus `Pet`, con **almacenamiento en memoria** a través de repositorios respaldados por diccionarios. Los datos viven mientras el proceso esté corriendo.
+Proyecto FastAPI que implementa un **CRUD** para la entidad `Student` y sus `Pet`, con persistencia en PostgreSQL mediante SQLAlchemy y migraciones de Alembic.
 
 ## Tecnologías
 
 - Python 3.13
-- FastAPI + repositorios en memoria
+- FastAPI + SQLAlchemy + PostgreSQL
+- Alembic para migraciones de esquema
 - HTML + JS + Tailwind CSS (frontend estático)
 
 ## Resumen funcional
@@ -26,6 +27,8 @@ La API expone operaciones CRUD completas sobre estudiantes y mascotas:
 - **Crear**: `POST /api/students/:studentId/pets`
 - **Actualizar**: `PATCH /api/students/:studentId/pets/:petId`
 - **Eliminar**: `DELETE /api/students/:studentId/pets/:petId`
+
+La vista general de mascotas consume `GET /api/pets` y muestra todas las mascotas junto con el estudiante al que pertenecen.
 
 ### Alta de estudiante con mascotas
 
@@ -185,7 +188,7 @@ El cliente estático (`public/`) consume este estándar de forma uniforme:
 ## Contexto técnico
 
 - **Backend**: FastAPI
-- **Persistencia**: en memoria (repositorios respaldados por diccionarios); los datos se pierden al reiniciar
+- **Persistencia**: PostgreSQL (Docker Compose)
 - **Validación**: Pydantic v2
 - **Frontend**: archivos estáticos en `public/` (Alpine.js + Tailwind CSS + vanilla-sonner, vía CDN)
 - **Gestor de dependencias**: uv
@@ -193,25 +196,20 @@ El cliente estático (`public/`) consume este estándar de forma uniforme:
 
 ## Ejecución local
 
-1. Instalar dependencias:
+1. Iniciar PostgreSQL:
 
     ```bash
-    make install
+    docker compose up -d db
     ```
 
-    O directamente con uv:
+2. Instalar dependencias y aplicar migraciones:
 
     ```bash
     uv sync
+    uv run alembic upgrade head
     ```
 
-2. Levantar el servidor en modo desarrollo:
-
-    ```bash
-    make dev
-    ```
-
-    O usando uv:
+3. Levantar el servidor en modo desarrollo:
 
     ```bash
     uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 3000
@@ -222,12 +220,14 @@ La aplicación queda disponible en:
 - `http://localhost:3000`
 - `http://localhost:3000/docs`
 
-> Al ser un almacenamiento en memoria, los datos se pierden cada vez que se reinicia el servidor (incluido el reload de desarrollo).
+Para comprobar el flujo completo, crea un estudiante desde la página principal, abre **Ver mascotas** para crear/editar/eliminar una y revisa que los cambios continúen después de reiniciar el servidor.
+
+Las credenciales y el puerto de PostgreSQL se configuran mediante las variables de entorno usadas por `compose.yml` y `app/database.py`.
 
 ## Comandos útiles
 
 - `make install` — sincroniza dependencias con uv
-- `make dev` — arranca uvicorn en modo reload
+- `make dev` — arranca uvicorn en modo reload en el puerto 3000
 - `make lint` — ejecuta Ruff (con autocorrección)
 - `make format` — formatea el código con Ruff
 - `make format-check` — verifica el formato

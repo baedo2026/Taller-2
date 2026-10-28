@@ -1,32 +1,37 @@
-from app.pets.pets_schemas import Pet
-from app.shared.in_memory_store import InMemoryStore
+from sqlalchemy.orm import Session
+
+from app.models import PetModel, StudentModel
 
 
 class PetsRepository:
-    def __init__(self) -> None:
-        self._store: InMemoryStore[Pet] = InMemoryStore()
-
-    def find_all_by_student(self, student_id: str) -> list[Pet]:
-        return self._store.find_by(lambda pet: pet.studentId == student_id)
-
-    def find_by_id(self, pet_id: str) -> Pet | None:
-        return self._store.get(pet_id)
-
-    def find_by_student_and_name(self, student_id: str, name: str) -> Pet | None:
-        matches = self._store.find_by(
-            lambda pet: pet.studentId == student_id and pet.name == name
+    def find_all(self, db: Session) -> list[PetModel]:
+        return (
+            db.query(PetModel)
+            .join(StudentModel, PetModel.owner_id == StudentModel.id)
+            .all()
         )
-        return matches[0] if matches else None
 
-    def save(self, pet: Pet) -> Pet:
-        self._store.set(pet)
+    def find_all_by_student(self, db: Session, student_id: int) -> list[PetModel]:
+        return db.query(PetModel).filter(PetModel.owner_id == student_id).all()
+
+    def find_by_id(self, db: Session, pet_id: int) -> PetModel | None:
+        return db.query(PetModel).filter(PetModel.id == pet_id).first()
+
+    def find_by_student_and_name(
+        self, db: Session, student_id: int, name: str
+    ) -> PetModel | None:
+        return (
+            db.query(PetModel)
+            .filter(PetModel.owner_id == student_id, PetModel.name == name)
+            .first()
+        )
+
+    def save(self, db: Session, pet: PetModel) -> PetModel:
+        db.add(pet)
         return pet
 
-    def delete(self, pet_id: str) -> None:
-        self._store.delete(pet_id)
-
-    def delete_by_student(self, student_id: str) -> None:
-        self._store.delete_by(lambda pet: pet.studentId == student_id)
+    def delete(self, db: Session, pet: PetModel) -> None:
+        db.delete(pet)
 
 
 pets_repository = PetsRepository()
