@@ -42,10 +42,20 @@ class Pet(BaseModel):
     createdAt: ApiDatetime
     updatedAt: ApiDatetime
 
+    @field_validator("id", "studentId", mode="before")
+    @classmethod
+    def _serialize_ids(cls, value: object) -> str:
+        return str(value)
+
 
 class PetList(BaseModel):
     total: int
     items: list[Pet]
+
+
+class PetWithStudent(Pet):
+    studentName: str
+    studentUsername: str
 
 
 class CreatePetDto(BaseModel):

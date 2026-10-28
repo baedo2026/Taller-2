@@ -22,7 +22,7 @@
 						← Volver a estudiantes
 					</a>
 					<h1 class="mt-2 text-3xl font-semibold tracking-tight">
-						Mascotas
+						<span x-text="allStudents ? 'Todas las mascotas' : 'Mascotas'"></span>
 						<span
 							class="block text-sm font-normal text-zinc-500"
 							x-show="student"
@@ -33,7 +33,7 @@
 				<button
 					type="button"
 					@click="openCreate()"
-					x-show="!studentError"
+					x-show="studentId && !studentError"
 					class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-700"
 				>
 					Nueva mascota
@@ -48,8 +48,14 @@
 			</p>
 
 			<p x-show="!studentError && loading" class="text-sm text-zinc-500">Cargando…</p>
-			<p x-show="!studentError && !loading && pets.length === 0" class="text-sm text-zinc-500">
+			<p x-show="allStudents && !loading && pets.length === 0" class="text-sm text-zinc-500">
+				Todavía no hay mascotas registradas.
+			</p>
+			<p x-show="!allStudents && !studentError && !loading && pets.length === 0" class="text-sm text-zinc-500">
 				Este estudiante no tiene mascotas.
+			</p>
+			<p x-show="allStudents && pets.length > 0" class="mb-4 text-sm text-zinc-500">
+				Selecciona un estudiante desde la lista de estudiantes para agregarle una mascota.
 			</p>
 
 			<ul>
@@ -59,8 +65,14 @@
 							<p class="font-medium text-zinc-900" x-text="pet.name"></p>
 							<p
 								class="text-xs text-zinc-500"
-								x-text="pet.age === undefined ? pet.species : `${pet.species} · ${pet.age} años`"
+								x-text="pet.age == null ? pet.species : `${pet.species} · ${pet.age} años`"
 							></p>
+							<a
+								x-show="allStudents"
+								:href="`/pets.html?studentId=${pet.studentId}`"
+								class="text-xs text-blue-700 hover:underline"
+								x-text="`De ${pet.studentName} (@${pet.studentUsername})`"
+							></a>
 						</div>
 						<div class="flex shrink-0 gap-2">
 							<button
@@ -197,6 +209,10 @@
 			</div>
 		</main>
 
-		<script type="module" src="/js/pets.js"></script>
-	</body>
+	<div style="background-color: #27272a; padding: 12px; margin-bottom: 20px; border-radius: 8px;">
+    <a href="/" style="color: #a1a1aa; font-weight: bold; margin-right: 15px; text-decoration: none;"> Estudiantes</a>
+    <a href="/pets.html" style="color: white; font-weight: bold; text-decoration: none;"> Mascotas</a>
+	</div>
+	<script type="module" src="/js/pets.js"></script>
+		</body>
 </html>

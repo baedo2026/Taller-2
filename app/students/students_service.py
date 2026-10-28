@@ -1,13 +1,11 @@
-from uuid import uuid4
-
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
-from app.pets.pets_repository import PetsRepository, pets_repository
-from app.pets.pets_schemas import Pet
-from app.shared.datetimes import utc_now
+from app.models import PetModel, StudentModel
 from app.shared.exceptions import conflict
 from app.shared.types import FieldErrors
-from app.students.students_repository import StudentsRepository
+from app.students.students_repository import StudentsRepository, students_repository
 from app.students.students_schemas import (
     CreateStudentDto,
     Student,
@@ -17,110 +15,121 @@ from app.students.students_schemas import (
 
 
 class StudentsService:
-    def __init__(self, repository: StudentsRepository, pets: PetsRepository) -> None:
+    def __init__(self, repository: StudentsRepository) -> None:
         self.repository = repository
-        self.pets_repository = pets
 
-    def find_all(self) -> StudentList:
+    def find_all(self, db: Session) -> StudentList:
         students = sorted(
-            self.repository.find_all(), key=lambda s: s.createdAt, reverse=True
+            self.repository.find_all(db),
+            key=lambda student: student.createdAt,
+            reverse=True,
+        )
+        return StudentList(
+            total=len(students),
+            items=[Student.model_validate(student) for student in students],
         )
 
-        return StudentList(total=len(students), items=students)
-
-    def find_by_id(self, student_id: str) -> Student:
-        student = self.repository.find_by_id(student_id)
-
+    def find_by_id(self, db: Session, student_id: int) -> Student:
+        student = self.repository.find_by_id(db, student_id)
         if student is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Estudiante no encontrado",
             )
+        return Student.model_validate(student)
 
-        return student
-
-    def create(self, data: CreateStudentDto) -> Student:
-        self.assert_no_conflicts(data)
-
-        now = utc_now()
-        student = Student(
-            id=str(uuid4()),
+    def create(self, db: Session, data: CreateStudentDto) -> Student:
+        self.assert_no_conflicts(db, data)
+        student = StudentModel(
             name=data.name,
             username=data.username,
-            email=data.email,
+            email=str(data.email),
             age=data.age,
-            createdAt=now,
-            updatedAt=now,
         )
+        pet_names: set[str] = set()
+        pets: list[PetModel] = []
 
-        self.repository.save(student)
-
-        # En SQL/ORM, insertar el estudiante y sus mascotas debe ir dentro de una
-        # transacción: si una mascota falla, el estudiante no debe quedar creado.
         for pet_data in data.pets:
-            existing = self.pets_repository.find_by_student_and_name(
-                student.id, pet_data.name
-            )
-
-            if existing is not None:
+            if pet_data.name in pet_names:
                 raise conflict(
                     {"name": {"message": "Ya tienes una mascota con ese nombre"}}
                 )
-
-            pet_now = utc_now()
-            pet = Pet(
-                id=str(uuid4()),
-                studentId=student.id,
-                name=pet_data.name,
-                species=pet_data.species,
-                age=pet_data.age,
-                createdAt=pet_now,
-                updatedAt=pet_now,
+            pet_names.add(pet_data.name)
+            pets.append(
+                PetModel(
+                    name=pet_data.name,
+                    species=pet_data.species,
+                    age=pet_data.age,
+                )
             )
 
-            self.pets_repository.save(pet)
+        student.pets = pets
+        try:
+            self.repository.save(db, student)
+            db.commit()
+            db.refresh(student)
+        except IntegrityError as exc:
+            db.rollback()
+            raise conflict(
+                {"email": {"message": "El correo o nombre de usuario ya está en uso"}}
+            ) from exc
 
-        return student
+        return Student.model_validate(student)
 
-    def update(self, student_id: str, data: UpdateStudentDto) -> Student:
-        existing = self.find_by_id(student_id)
-        self.assert_no_conflicts(data, except_id=student_id)
+    def update(self, db: Session, student_id: int, data: UpdateStudentDto) -> Student:
+        student = self._get_model(db, student_id)
+        self.assert_no_conflicts(db, data, except_id=student_id)
+        for field, value in data.model_dump(
+            exclude_unset=True, exclude_none=True
+        ).items():
+            setattr(student, field, str(value) if field == "email" else value)
 
-        updated = existing.model_copy(
-            update={
-                **data.model_dump(exclude_none=True),
-                "updatedAt": utc_now(),
-            }
-        )
+        try:
+            db.commit()
+            db.refresh(student)
+        except IntegrityError as exc:
+            db.rollback()
+            raise conflict(
+                {"email": {"message": "El correo o nombre de usuario ya está en uso"}}
+            ) from exc
 
-        return self.repository.save(updated)
+        return Student.model_validate(student)
 
-    def delete(self, student_id: str) -> Student:
-        existing = self.find_by_id(student_id)
-        self.repository.delete(student_id)
-
-        return existing
+    def delete(self, db: Session, student_id: int) -> Student:
+        student = self._get_model(db, student_id)
+        result = Student.model_validate(student)
+        self.repository.delete(db, student)
+        db.commit()
+        return result
 
     def assert_no_conflicts(
         self,
+        db: Session,
         data: CreateStudentDto | UpdateStudentDto,
-        except_id: str | None = None,
+        except_id: int | None = None,
     ) -> None:
         errors: FieldErrors = {}
-
         if data.email:
-            existing = self.repository.find_by_email(data.email)
+            existing = self.repository.find_by_email(db, str(data.email))
             if existing and existing.id != except_id:
                 errors["email"] = {"message": "El correo electrónico ya está en uso"}
 
         if data.username:
-            existing = self.repository.find_by_username(data.username)
+            existing = self.repository.find_by_username(db, data.username)
             if existing and existing.id != except_id:
                 errors["username"] = {"message": "El nombre de usuario ya está en uso"}
 
         if errors:
             raise conflict(errors)
 
+    def _get_model(self, db: Session, student_id: int) -> StudentModel:
+        student = self.repository.find_by_id(db, student_id)
+        if student is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Estudiante no encontrado",
+            )
+        return student
 
-students_repository = StudentsRepository()
-students_service = StudentsService(students_repository, pets_repository)
+
+students_service = StudentsService(students_repository)

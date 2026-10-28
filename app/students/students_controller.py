@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.orm import Session
 
-from app.pets.pets_service import pets_service
+from app.database import get_db
 from app.students.students_schemas import (
     CreateStudentDto,
     Student,
@@ -12,29 +13,28 @@ from app.students.students_service import students_service
 router = APIRouter(prefix="/api/students", tags=["Students"])
 
 
-@router.get("")
-def find_all() -> StudentList:
-    return students_service.find_all()
+@router.get("", response_model=StudentList)
+def find_all(db: Session = Depends(get_db)) -> StudentList:
+    return students_service.find_all(db)
 
 
-@router.get("/{studentId}")
-def find_by_id(studentId: str) -> Student:
-    return students_service.find_by_id(studentId)
+@router.get("/{student_id}", response_model=Student)
+def find_by_id(student_id: int, db: Session = Depends(get_db)) -> Student:
+    return students_service.find_by_id(db, student_id)
 
 
-@router.post("", status_code=201)
-def create(body: CreateStudentDto) -> Student:
-    return students_service.create(body)
+@router.post("", response_model=Student, status_code=status.HTTP_201_CREATED)
+def create(data: CreateStudentDto, db: Session = Depends(get_db)) -> Student:
+    return students_service.create(db, data)
 
 
-@router.patch("/{studentId}")
-def update(studentId: str, body: UpdateStudentDto) -> Student:
-    return students_service.update(studentId, body)
+@router.patch("/{student_id}", response_model=Student)
+def update(
+    student_id: int, data: UpdateStudentDto, db: Session = Depends(get_db)
+) -> Student:
+    return students_service.update(db, student_id, data)
 
 
-@router.delete("/{studentId}")
-def delete(studentId: str) -> Student:
-    deleted = students_service.delete(studentId)
-    pets_service.delete_all_for_student(studentId)
-
-    return deleted
+@router.delete("/{student_id}", response_model=Student)
+def delete(student_id: int, db: Session = Depends(get_db)) -> Student:
+    return students_service.delete(db, student_id)

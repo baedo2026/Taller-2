@@ -10,21 +10,32 @@ import { api, normalizeErrors, toast } from "./api.js"
 function createApp() {
 	return {
 		studentId: new URLSearchParams(window.location.search).get("studentId") || "",
-		student: null,
+		allStudents: false,
+		student: /** @type {Student | null} */ (null),
 		studentError: false,
 
-		pets: [],
+		pets: /** @type {Pet[]} */ ([]),
 		loading: false,
 
 		modal: { open: false, mode: "create", busy: false },
-		form: { id: null, name: "", species: "", age: "" },
+		form: /** @type {{ id: string | null, studentId?: string, name: string, species: string, age: string }} */ ({
+			id: null,
+			name: "",
+			species: "",
+			age: "",
+		}),
 		errors: {},
 
-		deleteModal: { open: false, pet: null, busy: false },
+		deleteModal: /** @type {{ open: boolean, pet: Pet | null, busy: boolean }} */ ({
+			open: false,
+			pet: null,
+			busy: false,
+		}),
 
 		async init() {
 			if (!this.studentId) {
-				this.studentError = true
+				this.allStudents = true
+				await this.loadPets()
 				return
 			}
 
@@ -48,12 +59,17 @@ function createApp() {
 			this.loading = true
 
 			try {
-				const list = /** @type {{ items: Pet[] }} */ (
-					await api(`/students/${this.studentId}/pets`)
-				)
-				this.pets = list.items
+				if (this.allStudents) {
+					this.pets = /** @type {Pet[]} */ (await api("/pets"))
+				} else {
+					const list = /** @type {{ items: Pet[] }} */ (
+						await api(`/students/${this.studentId}/pets`)
+					)
+					this.pets = list.items
+				}
 			} catch (err) {
-				const message = (err && err.error) || "No se pudieron cargar las mascotas"
+				const payload = /** @type {ApiPayload} */ (err)
+				const message = payload.error || "No se pudieron cargar las mascotas"
 				toast(message)
 			} finally {
 				this.loading = false
@@ -66,9 +82,11 @@ function createApp() {
 			this.modal = { open: true, mode: "create", busy: false }
 		},
 
+		/** @param {Pet} pet */
 		openEdit(pet) {
 			this.form = {
 				id: pet.id,
+				studentId: pet.studentId,
 				name: pet.name,
 				species: pet.species,
 				age: pet.age === undefined ? "" : String(pet.age),
@@ -88,7 +106,9 @@ function createApp() {
 
 			const id = this.form.id
 			const method = id ? "PATCH" : "POST"
-			const path = id ? `/students/${this.studentId}/pets/${id}` : `/students/${this.studentId}/pets`
+			const path = id
+				? `/students/${this.form.studentId || this.studentId}/pets/${id}`
+				: `/students/${this.studentId}/pets`
 
 			/** @type {{ name: string, species: string, age?: number }} */
 			const body = {
@@ -118,6 +138,7 @@ function createApp() {
 			}
 		},
 
+		/** @param {Pet} pet */
 		openDelete(pet) {
 			this.deleteModal = { open: true, pet, busy: false }
 		},
@@ -133,7 +154,7 @@ function createApp() {
 			this.deleteModal.busy = true
 
 			try {
-				await api(`/students/${this.studentId}/pets/${pet.id}`, { method: "DELETE" })
+				await api(`/students/${pet.studentId}/pets/${pet.id}`, { method: "DELETE" })
 				this.closeDelete()
 				toast("Mascota eliminada", "success")
 				await this.loadPets()
